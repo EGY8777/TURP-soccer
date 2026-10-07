@@ -1,0 +1,114 @@
+local p = game:GetService("Players").LocalPlayer
+local f = workspace:FindFirstChild("TrajFolder") or Instance.new("Folder", workspace)
+f.Name = "TrajFolder"
+
+local p_pool = {}
+local b_pool = {}
+local cur_v = Vector3.zero
+local lp_pos, lp_t
+
+game:GetService("RunService").Heartbeat:Connect(function()
+    local ball = workspace:FindFirstChild("CarSoccer") and workspace.CarSoccer:FindFirstChild("Ball") and workspace.CarSoccer.Ball:FindFirstChild("ball")
+    if not ball then
+        for i=1, #p_pool do p_pool[i].Transparency = 1 end
+        for i=1, #b_pool do b_pool[i].Transparency = 1 end
+        return
+    end
+
+    local pos = ball.Position
+    local t = tick()
+    if lp_pos and lp_t and (t - lp_t) > 0 then
+        cur_v = cur_v:Lerp((pos - lp_pos) / (t - lp_t), 0.65)
+    end
+    lp_pos = pos
+    lp_t = t
+
+    if cur_v.Magnitude < 2.5 then
+        for i=1, #p_pool do p_pool[i].Transparency = 1 end
+        for i=1, #b_pool do b_pool[i].Transparency = 1 end
+        return
+    end
+
+    local ray_params = RaycastParams.new()
+    ray_params.FilterType = Enum.RaycastFilterType.Exclude
+    ray_params.FilterDescendantsInstances = {f, ball.Parent, p.Character}
+
+    local curr = pos
+    local vel = cur_v
+    local m_pts = {}
+    local b_pts = {}
+    local is_b = false
+    local b_cnt = 0
+
+    for i = 1, 150 do
+        local nv = Vector3.new(vel.X, vel.Y - workspace.Gravity * 0.04, vel.Z)
+        local np = curr + nv * 0.04
+        local hit = workspace:Raycast(curr, np - curr, ray_params)
+
+        if hit then
+            local hp = hit.Position
+            local n = hit.Normal
+            if not is_b then
+                table.insert(m_pts, hp)
+                is_b = true
+            else
+                table.insert(b_pts, hp)
+            end
+            vel = (nv - 2 * nv:Dot(n) * n) * 0.75
+            curr = hp + n * 0.1
+            b_cnt = b_cnt + 1
+            if b_cnt >= 2 then break end
+        else
+            if not is_b then table.insert(m_pts, np) else table.insert(b_pts, np) end
+            curr = np
+            vel = nv
+            if curr.Y <= 0 then break end
+        end
+    end
+
+    for i = 1, #m_pts - 1 do
+        local a, b = m_pts[i], m_pts[i+1]
+        local d = (b - a).Magnitude
+        if d > 0.05 then
+            local pt = p_pool[i]
+            if not pt or not pt.Parent then
+                pt = Instance.new("Part")
+                pt.Anchored = true
+                pt.CanCollide = false
+                pt.CanQuery = false
+                pt.Material = Enum.Material.Neon
+                pt.Shape = Enum.PartType.Cylinder
+                pt.Parent = f
+                p_pool[i] = pt
+            end
+            pt.Color = Color3.fromRGB(0, 255, 140)
+            pt.Transparency = 0.15
+            pt.Size = Vector3.new(d, 0.35, 0.35)
+            pt.CFrame = CFrame.new((a + b) * 0.5, b) * CFrame.Angles(0, math.rad(90), 0)
+        end
+    end
+    for i = #m_pts, #p_pool do if p_pool[i] then p_pool[i].Transparency = 1 end end
+
+    for i = 1, #b_pts - 1 do
+        local a, b = b_pts[i], b_pts[i+1]
+        local d = (b - a).Magnitude
+        if d > 0.05 then
+            local pt = b_pool[i]
+            if not pt or not pt.Parent then
+                pt = Instance.new("Part")
+                pt.Anchored = true
+                pt.CanCollide = false
+                pt.CanQuery = false
+                pt.Material = Enum.Material.Neon
+                pt.Shape = Enum.PartType.Cylinder
+                pt.Parent = f
+                b_pool[i] = pt
+            end
+            pt.Color = Color3.fromRGB(255, 50, 50)
+            pt.Transparency = 0.15
+            pt.Size = Vector3.new(d, 0.35, 0.35)
+            pt.CFrame = CFrame.new((a + b) * 0.5, b) * CFrame.Angles(0, math.rad(90), 0)
+        end
+    end
+    for i = #b_pts, #b_pool do if b_pool[i] then b_pool[i].Transparency = 1 end end
+end)
